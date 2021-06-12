@@ -1,7 +1,7 @@
 #include "imageaxis.h"
 
-ImageAxis::ImageAxis(const QPointF &size) : QGraphicsItem() {
-    this->size = size;
+ImageAxis::ImageAxis(QObject *parent) : QObject(parent), QGraphicsItem() {
+
 }
 
 ImageAxis::~ImageAxis() {
@@ -21,14 +21,14 @@ QRectF ImageAxis::boundingRect() const {
 }
 
 void ImageAxis::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
-    QPen penRed(Qt::red, 4, Qt::DashDotLine, Qt::RoundCap);
-    QPen penGreen(Qt::green, 4, Qt::DashDotLine, Qt::RoundCap);
+    QPen penRedDots(QColor(240, 50, 50), 3, Qt::DashDotLine, Qt::RoundCap);
+    QPen penGreenDots(QColor(50, 240, 50), 3, Qt::DashDotLine, Qt::RoundCap);
     if (this->horisontal) {
-        painter->setPen(penRed);
+        painter->setPen(penRedDots);
         painter->drawLine(0, size.y() / 2, size.x(), size.y() / 2);
     }
     else {
-        painter->setPen(penGreen);
+        painter->setPen(penGreenDots);
         painter->drawLine(size.x() / 2, 0, size.x() / 2, size.y());
     }
 
@@ -37,11 +37,16 @@ void ImageAxis::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
 }
 
 void ImageAxis::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
+    QPointF scene_pos;
     if (this->horisontal) {
-        this->setPos(mapToScene(QPointF(this->pos().x(), event->pos().y())));
+        scene_pos = mapToScene(QPoint(0, event->pos().y()));
+        this->setPos(scene_pos);
+        emit this->axisMoved(scene_pos.y() + size.y() / 2);
     }
     else {
-        this->setPos(mapToScene(QPointF(event->pos().x(), this->pos().y())));
+        scene_pos = mapToScene(QPoint(event->pos().x(), 0));
+        this->setPos(scene_pos);
+        emit this->axisMoved(scene_pos.x() + size.x() / 2);
     }
 }
 

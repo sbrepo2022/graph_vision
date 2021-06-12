@@ -1,6 +1,8 @@
 #ifndef IMAGEVIEW_H
 #define IMAGEVIEW_H
 
+#include <QApplication>
+#include <QResizeEvent>
 #include <QGraphicsView>
 #include <QGraphicsScene>
 #include <QGraphicsItemGroup>
@@ -26,8 +28,11 @@ private:
     QGraphicsScene *scene;
     QGraphicsPixmapItem *bg_image;
     ImageAxis *x_axis, *y_axis;
-    int scale_factor;
 
+    int scale_factor;
+    int start_pixel_x, start_pixel_y;
+    int pps_x, pps_y;
+    int step_x, step_y;
 
     void resizeEvent(QResizeEvent *event);
 
@@ -35,6 +40,12 @@ public slots:
     void setScaleFactor(int scale_factor);
     void xAxisVisible(int state);
     void yAxisVisible(int state);
+    void setStartPixelX(int start_pixel);
+    void setStartPixelY(int start_pixel);
+    void setPPSX(int pps);
+    void setPPSY(int pps);
+    void setStepX(double step);
+    void setStepY(double step);
 };
 
 #endif // IMAGEVIEW_H
