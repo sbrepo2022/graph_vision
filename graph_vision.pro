@@ -10,12 +10,14 @@ CONFIG += c++11
 
 SOURCES += \
     imageaxis.cpp \
+    imagepreprocess.cpp \
     imageview.cpp \
     main.cpp \
     mainwindow.cpp
 
 HEADERS += \
     imageaxis.h \
+    imagepreprocess.h \
     imageview.h \
     mainwindow.h
 
