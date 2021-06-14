@@ -10,6 +10,7 @@ CONFIG += c++11
 
 SOURCES += \
     imageaxis.cpp \
+    imagepoint.cpp \
     imagepreprocess.cpp \
     imageview.cpp \
     main.cpp \
@@ -17,6 +18,7 @@ SOURCES += \
 
 HEADERS += \
     imageaxis.h \
+    imagepoint.h \
     imagepreprocess.h \
     imageview.h \
     mainwindow.h

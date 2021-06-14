@@ -1,3 +1,7 @@
 <RCC>
-    <qresource prefix="/images"/>
+    <qresource prefix="/images">
+        <file alias="add_point">resources/add_point.svg</file>
+        <file alias="cursor">resources/cursor.svg</file>
+        <file alias="add_point_png">resources/add_point.png</file>
+    </qresource>
 </RCC>

@@ -106,6 +106,9 @@
              <height>0</height>
             </size>
            </property>
+           <property name="horizontalScrollBarPolicy">
+            <enum>Qt::ScrollBarAlwaysOff</enum>
+           </property>
            <property name="sizeAdjustPolicy">
             <enum>QAbstractScrollArea::AdjustIgnored</enum>
            </property>
@@ -117,8 +120,8 @@
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>300</width>
-              <height>449</height>
+              <width>414</width>
+              <height>466</height>
              </rect>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -145,6 +148,16 @@
                   </property>
                   <property name="checked">
                    <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="checkProcessedImage">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="text">
+                   <string>Processed Image</string>
                   </property>
                  </widget>
                 </item>
@@ -267,6 +280,45 @@
               </widget>
              </item>
              <item>
+              <widget class="QGroupBox" name="groupImageProcess">
+               <property name="title">
+                <string>Process settings</string>
+               </property>
+               <layout class="QFormLayout" name="formLayout_2">
+                <item row="1" column="0">
+                 <widget class="QLabel" name="label_7">
+                  <property name="text">
+                   <string>Threshold</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QSpinBox" name="spinThreshold">
+                  <property name="maximum">
+                   <number>255</number>
+                  </property>
+                  <property name="value">
+                   <number>128</number>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="0">
+                 <widget class="QLabel" name="label_8">
+                  <property name="font">
+                   <font>
+                    <weight>75</weight>
+                    <bold>true</bold>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Monochrome</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item>
               <spacer name="verticalSpacer">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
@@ -323,7 +375,7 @@
               <x>0</x>
               <y>0</y>
               <width>316</width>
-              <height>272</height>
+              <height>277</height>
              </rect>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -430,6 +482,8 @@
     <property name="title">
      <string>&amp;Tools</string>
     </property>
+    <addaction name="actionRunPreprocess"/>
+    <addaction name="actionRunGraph"/>
     <addaction name="actionRun"/>
    </widget>
    <widget class="QMenu" name="menuAbout">
@@ -456,7 +510,7 @@
   </widget>
   <action name="actionRun">
    <property name="text">
-    <string>&amp;Run</string>
+    <string>&amp;Run All</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+R</string>
@@ -478,6 +532,55 @@
     <string>Ctrl+E</string>
    </property>
   </action>
+  <action name="actionRunPreprocess">
+   <property name="text">
+    <string>Run &amp;Preprocess</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
+   </property>
+  </action>
+  <action name="actionRunGraph">
+   <property name="text">
+    <string>Run &amp;Graph</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+G</string>
+   </property>
+  </action>
+  <action name="actionAddPoint">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="resources.qrc">
+     <normaloff>:/images/add_point</normaloff>:/images/add_point</iconset>
+   </property>
+   <property name="text">
+    <string>AddPoint</string>
+   </property>
+   <property name="toolTip">
+    <string>Add point to graphic image</string>
+   </property>
+  </action>
+  <action name="actionCursor">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="resources.qrc">
+     <normaloff>:/images/cursor</normaloff>:/images/cursor</iconset>
+   </property>
+   <property name="text">
+    <string>Cursor</string>
+   </property>
+   <property name="toolTip">
+    <string>Use cursor</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -491,6 +594,8 @@
    <header>QtCharts</header>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections/>
 </ui>

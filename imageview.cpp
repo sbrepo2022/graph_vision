@@ -13,6 +13,11 @@ ImageView::ImageView(QWidget *parent) : QGraphicsView(parent) {
 
     // styles
     this->setBackgroundBrush(QBrush(QColor(240, 240, 240)));
+
+    // load custom cursor
+    QPixmap cursor_pixmap;
+    cursor_pixmap = QPixmap(":/images/add_point_png");
+    add_point_cursor = QCursor(cursor_pixmap);
 }
 
 ImageView::~ImageView() {
@@ -20,10 +25,13 @@ ImageView::~ImageView() {
 }
 
 void ImageView::initSceneItems(const QPixmap &pixmap) {
+    this->opened_pixmap = pixmap;
+    this->show_processed_image_state = false;
+
     this->deleteSceneItems();
 
-    this->bg_image = this->scene->addPixmap(pixmap);
-    this->scene->setSceneRect(pixmap.rect());
+    this->bg_image = this->scene->addPixmap(opened_pixmap);
+    this->scene->setSceneRect(opened_pixmap.rect());
 
     QRectF scene_rect = this->scene->sceneRect();
 
@@ -45,6 +53,11 @@ void ImageView::initSceneItems(const QPixmap &pixmap) {
     QObject::connect(this->y_axis, &ImageAxis::axisMoved, this, &ImageView::setStartPixelX);
 
     this->resizeContent();
+}
+
+void ImageView::setProcessedImage(const QPixmap &processed_pixmap) {
+    this->processed_pixmap = processed_pixmap;
+    this->bg_image->setPixmap(show_processed_image_state ? processed_pixmap : opened_pixmap);
 }
 
 void ImageView::deleteSceneItems() {
@@ -81,7 +94,38 @@ void ImageView::resizeEvent(QResizeEvent *event) {
     this->resizeContent();
 }
 
+void ImageView::mousePressEvent(QMouseEvent *event) {
+    if (cursor_mode == ImageViewCursorMode::AddPoint) {
+        QPointF scene_pos = mapToScene(QPoint(event->pos().x(), event->pos().y()));
+
+        ImagePoint *point = new ImagePoint();
+        point->setPos(scene_pos);
+        point->setFlag(QGraphicsItem::ItemIgnoresTransformations);
+        point->setSize(QPointF(24, 24));
+        point->setPixmap(QPixmap(":images/add_point"));
+        this->scene->addItem(point);
+    }
+    else {
+        QGraphicsView::mousePressEvent(event);
+    }
+
+}
+
 // slots
+
+void ImageView::setCursorMode(ImageViewCursorMode cursor_mode) {
+    this->cursor_mode = cursor_mode;
+
+    switch (cursor_mode) {
+        case (ImageViewCursorMode::AddPoint):
+            setCursor(add_point_cursor);
+            break;
+
+        case (ImageViewCursorMode::Arrow):
+            setCursor(QCursor(Qt::ArrowCursor));
+            break;
+    }
+}
 
 void ImageView::setScaleFactor(int scale_factor) {
     this->scale_factor = scale_factor;
@@ -98,6 +142,11 @@ void ImageView::yAxisVisible(int state) {
     if (this->y_axis != nullptr) {
         this->y_axis->setVisible(state);
     }
+}
+
+void ImageView::showProcessedImage(int state) {
+    this->show_processed_image_state = state;
+    this->bg_image->setPixmap(state ? processed_pixmap : opened_pixmap);
 }
 
 void ImageView::setStartPixelX(int start_pixel) {
