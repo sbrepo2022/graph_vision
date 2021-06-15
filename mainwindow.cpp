@@ -35,6 +35,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     // init image processor
     monochrome_image = new MonochromeImage();
     monochrome_image->setThreshold(ui->spinThreshold->value());
+    //image_processor.addMiddleware(new MonochromeGradientImage());
     image_processor.addMiddleware(monochrome_image);
 }
 

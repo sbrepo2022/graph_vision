@@ -23,6 +23,18 @@ public:
     virtual ~MonochromeImage();
 };
 
+class MonochromeGradientImage : public ImagePreprocess {
+private:
+    int threshold;
+
+public:
+    MonochromeGradientImage();
+    void setThreshold(int threshold);
+
+    virtual QImage processImage(const QImage &image);
+    virtual ~MonochromeGradientImage();
+};
+
 class ImageProcessor {
 private:
     QList<ImagePreprocess*> middleware;
