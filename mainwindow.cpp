@@ -7,6 +7,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     // initialize ui
     this->initUi();
 
+    // window settings
+    this->showMaximized();
+
+    // init dialogs
+    export_dialog = new ExportDialog(this);
+
     // initialize toolbar
     graph_cursor_action_group = new QActionGroup(this);
     graph_cursor_action_group->setExclusive(true);
@@ -17,6 +23,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     // connect signal-slots
     QObject::connect(ui->actionOpen, SIGNAL(triggered()), this, SLOT(onOpenFile()));
+    QObject::connect(ui->actionExport, SIGNAL(triggered()), this, SLOT(onExport()));
     QObject::connect(ui->actionRunPreprocess, SIGNAL(triggered()), this, SLOT(onProcessImage()));
 
     QObject::connect(ui->actionCursor, SIGNAL(triggered()), this, SLOT(arrowCursorMode()));
@@ -25,22 +32,36 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     QObject::connect(ui->sliderImageScale, SIGNAL(valueChanged(int)), ui->graphicsViewImage, SLOT(setScaleFactor(int)));
     QObject::connect(ui->checkXAxis, SIGNAL(stateChanged(int)), ui->graphicsViewImage, SLOT(xAxisVisible(int)));
     QObject::connect(ui->checkYAxis, SIGNAL(stateChanged(int)), ui->graphicsViewImage, SLOT(yAxisVisible(int)));
+    QObject::connect(ui->checkImagePoints, SIGNAL(stateChanged(int)), ui->graphicsViewImage, SLOT(imagePointsVisible(int)));
     QObject::connect(ui->checkProcessedImage, SIGNAL(stateChanged(int)), ui->graphicsViewImage, SLOT(showProcessedImage(int)));
     QObject::connect(ui->spinPPSX, SIGNAL(valueChanged(int)), ui->graphicsViewImage, SLOT(setPPSX(int)));
     QObject::connect(ui->spinPPSY, SIGNAL(valueChanged(int)), ui->graphicsViewImage, SLOT(setPPSY(int)));
     QObject::connect(ui->doubleSpinStepX, SIGNAL(valueChanged(double)), ui->graphicsViewImage, SLOT(setStepX(double)));
     QObject::connect(ui->doubleSpinStepY, SIGNAL(valueChanged(double)), ui->graphicsViewImage, SLOT(setStepY(double)));
-    QObject::connect(ui->spinThreshold, SIGNAL(valueChanged(int)), this, SLOT(setThreshold(int)));
 
     // init image processor
-    monochrome_image = new MonochromeImage();
-    monochrome_image->setThreshold(ui->spinThreshold->value());
-    //image_processor.addMiddleware(new MonochromeGradientImage());
-    image_processor.addMiddleware(monochrome_image);
+    image_processor = new ImageProcessor(ui->groupImageProcess);
+    image_processor->addMiddleware(new GaussianBlur());
+    image_processor->addMiddleware(new CannyFilter());
+
+    image_processor->moveToThread(&process_image_thread);
+    connect(image_processor, &ImageProcessor::resultReady, this, &MainWindow::onProcessImageEnd);
+    connect(this, &MainWindow::startProcessImage, image_processor, &ImageProcessor::processImage);
+    connect(image_processor, &ImageProcessor::startCalculating, this, &MainWindow::onStartProgressDialog);
+    connect(image_processor, &ImageProcessor::currentFilter, this, &MainWindow::onProcessProgressDialog);
+    connect(image_processor, &ImageProcessor::finishCalculating, this, &MainWindow::onFinishProgressDialog);
+    process_image_thread.start();
+
+    initPreprocessorsMenu();
+    initPresetsMenu();
 }
 
 MainWindow::~MainWindow() {
+    process_image_thread.quit();
+    process_image_thread.wait();
+
     delete ui;
+    delete image_processor;
 }
 
 void MainWindow::initUi() {
@@ -49,6 +70,50 @@ void MainWindow::initUi() {
     ui->splitterGraph->setStretchFactor(0, 1);
     ui->splitterGraph->setStretchFactor(1, 0);
     ui->splitterMain->setSizes(QList<int>({INT_MAX, INT_MAX}));
+}
+
+void MainWindow::initPreprocessorsMenu() {
+    QAction *monochrome_gradient = new QAction("Monochrome gradient");
+    connect(monochrome_gradient, &QAction::triggered, this, [=]() {
+        image_processor->addMiddleware(new MonochromeGradientImage());
+    });
+    ui->menuAddFilter->addAction(monochrome_gradient);
+
+    QAction *gaussian_blur = new QAction("Gaussian blur");
+    connect(gaussian_blur, &QAction::triggered, this, [=]() {
+        image_processor->addMiddleware(new GaussianBlur());
+    });
+    ui->menuAddFilter->addAction(gaussian_blur);
+
+    QAction *canny_filter = new QAction("Canny filter");
+    connect(canny_filter, &QAction::triggered, this, [=]() {
+        image_processor->addMiddleware(new CannyFilter());
+    });
+    ui->menuAddFilter->addAction(canny_filter);
+
+    QAction *color_gradient_filter = new QAction("Color gradient filter");
+    connect(color_gradient_filter, &QAction::triggered, this, [=]() {
+        image_processor->addMiddleware(new ColorGradientField());
+    });
+    ui->menuAddFilter->addAction(color_gradient_filter);
+}
+
+void MainWindow::initPresetsMenu() {
+    QAction *edge_analisys = new QAction("Edge analysis");
+    connect(edge_analisys, &QAction::triggered, this, [=]() {
+        image_processor->clear();
+        image_processor->addMiddleware(new GaussianBlur());
+        image_processor->addMiddleware(new CannyFilter());
+    });
+    ui->menuPresets->addAction(edge_analisys);
+
+    QAction *gradient_analisys = new QAction("Gradient analysis");
+    connect(gradient_analisys, &QAction::triggered, this, [=]() {
+        image_processor->clear();
+        image_processor->addMiddleware(new GaussianBlur());
+        image_processor->addMiddleware(new ColorGradientField());
+    });
+    ui->menuPresets->addAction(gradient_analisys);
 }
 
 // slots
@@ -74,16 +139,41 @@ void MainWindow::onOpenFile() {
     }
 }
 
+void MainWindow::onExport() {
+    export_dialog->setExportImage(processed_image);
+    export_dialog->exec();
+}
+
 void MainWindow::onProcessImage() {
     if (! opened_pixmap.isNull()) {
-        processed_image = image_processor.processImage(opened_pixmap.toImage());
-        ui->graphicsViewImage->setProcessedImage(QPixmap::fromImage(processed_image));
-        ui->checkProcessedImage->setDisabled(false);
+        emit startProcessImage(opened_pixmap.toImage());
     }
 }
 
-void MainWindow::setThreshold(int threshold) {
-    monochrome_image->setThreshold(threshold);
+void MainWindow::onProcessImageEnd(const QImage &result) {
+    processed_image = result;
+    ui->graphicsViewImage->setProcessedImage(QPixmap::fromImage(processed_image));
+    ui->checkProcessedImage->setDisabled(false);
+}
+
+void MainWindow::onStartProgressDialog(int count, QString name) {
+    progress_dialog = new QProgressDialog(name, "cancel", 0, count);
+    connect(progress_dialog, &QProgressDialog::canceled, this, &MainWindow::onProgressDialogCancelled);
+    progress_dialog->open();
+}
+
+void MainWindow::onProcessProgressDialog(int number, QString text) {
+    progress_dialog->setValue(number);
+    progress_dialog->setLabelText(text);
+}
+
+void MainWindow::onFinishProgressDialog() {
+    progress_dialog->setValue(progress_dialog->maximum());
+    progress_dialog->deleteLater();
+}
+
+void MainWindow::onProgressDialogCancelled() {
+
 }
 
 void MainWindow::arrowCursorMode() {

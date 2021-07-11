@@ -34,6 +34,7 @@ private:
     QGraphicsPixmapItem *bg_image;
     ImageAxis *x_axis, *y_axis;
     QVector<ImagePoint*> points;
+    bool points_visible;
     QPixmap opened_pixmap, processed_pixmap;
 
     // custom cursors
@@ -55,6 +56,7 @@ public slots:
     void setScaleFactor(int scale_factor);
     void xAxisVisible(int state);
     void yAxisVisible(int state);
+    void imagePointsVisible(int state);
     void showProcessedImage(int state);
     void setStartPixelX(int start_pixel);
     void setStartPixelY(int start_pixel);

@@ -1,6 +1,8 @@
 #include "imageview.h"
 
 ImageView::ImageView(QWidget *parent) : QGraphicsView(parent) {
+    this->points_visible = true;
+
     this->bg_image = nullptr;
     this->x_axis = nullptr;
     this->y_axis = nullptr;
@@ -67,6 +69,7 @@ void ImageView::deleteSceneItems() {
         QObject::disconnect(this->y_axis, &ImageAxis::axisMoved, this, &ImageView::setStartPixelX);
 
     this->scene->clear();
+    this->points.clear();
 
     this->bg_image = nullptr;
     this->x_axis = nullptr;
@@ -103,7 +106,9 @@ void ImageView::mousePressEvent(QMouseEvent *event) {
         point->setFlag(QGraphicsItem::ItemIgnoresTransformations);
         point->setSize(QPointF(24, 24));
         point->setPixmap(QPixmap(":images/add_point"));
+        point->setVisible(points_visible);
         this->scene->addItem(point);
+        points.push_back(point);
     }
     else {
         QGraphicsView::mousePressEvent(event);
@@ -141,6 +146,13 @@ void ImageView::xAxisVisible(int state) {
 void ImageView::yAxisVisible(int state) {
     if (this->y_axis != nullptr) {
         this->y_axis->setVisible(state);
+    }
+}
+
+void ImageView::imagePointsVisible(int state) {
+    points_visible = state;
+    for (int i = 0; i < points.count(); i++) {
+        points[i]->setVisible(state);
     }
 }
 
