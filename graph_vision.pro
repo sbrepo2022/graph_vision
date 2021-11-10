@@ -1,4 +1,4 @@
-QT       += core gui charts
+QT       += core core5compat gui charts
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -11,6 +11,8 @@ CONFIG += c++11
 SOURCES += \
     algorithms.cpp \
     exportdialog.cpp \
+    formgenerator.cpp \
+    graphpreprocess.cpp \
     imageaxis.cpp \
     imagepoint.cpp \
     imagepreprocess.cpp \
@@ -21,6 +23,8 @@ SOURCES += \
 HEADERS += \
     algorithms.h \
     exportdialog.h \
+    formgenerator.h \
+    graphpreprocess.h \
     imageaxis.h \
     imagepoint.h \
     imagepreprocess.h \

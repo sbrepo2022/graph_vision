@@ -20,6 +20,7 @@
 #include <QProgressDialog>
 
 #include <QList>
+#include <QStack>
 #include <QMutableListIterator>
 #include <QStringList>
 #include <QMap>
@@ -28,14 +29,17 @@
 
 #include <QDebug>
 
+#include <algorithm>
+
+#include "formgenerator.h"
 #include "algorithms.h"
 
-class ImagePreprocess : public QObject {
+class ImagePreprocess : public FormGenerator {
     Q_OBJECT;
 
 protected:
-    QString group_name;
     QWidget *interface_widget;
+    QString group_name;
     bool use;
 
     // use generateWidget in constructor of extended class
@@ -133,9 +137,11 @@ signals:
 class ColorGradientField : public ImagePreprocess {
     Q_OBJECT;
     Q_PROPERTY(QString filter MEMBER m_filter NOTIFY filterChanged);
+    Q_PROPERTY(bool grayscale MEMBER m_grayscale NOTIFY grayscaleChanged);
 
 private:
     QString m_filter;
+    bool m_grayscale;
 
 public:
     explicit ColorGradientField(QObject *parent = nullptr);
@@ -145,6 +151,49 @@ public:
 
 signals:
     void filterChanged(QString);
+    void grayscaleChanged(bool);
+};
+
+class SegmentationField : public ImagePreprocess {
+    Q_OBJECT;
+    Q_PROPERTY(int threshold_low MEMBER m_threshold_low NOTIFY thresholdLowChanged);
+    Q_PROPERTY(bool classification MEMBER m_classification NOTIFY classificationChanged);
+    Q_PROPERTY(bool autoclassification MEMBER m_autoclassification NOTIFY autoclassificationChanged);
+    Q_PROPERTY(int classification_threshold MEMBER m_classification_threshold NOTIFY classificationThresholdChanged);
+
+private:
+    int m_threshold_low;
+    bool m_classification;
+    bool m_autoclassification;
+    int m_classification_threshold;
+
+public:
+    explicit SegmentationField(QObject *parent = nullptr);
+
+    virtual QImage processImage(const QImage &image);
+    virtual ~SegmentationField();
+
+signals:
+    void thresholdLowChanged(int);
+    void classificationChanged(bool);
+    void autoclassificationChanged(bool);
+    void classificationThresholdChanged(int);
+};
+
+
+
+class ThinningFilter : public ImagePreprocess {
+    Q_OBJECT;
+
+private:
+
+public:
+    explicit ThinningFilter(QObject *parent = nullptr);
+
+    virtual QImage processImage(const QImage &image);
+    virtual ~ThinningFilter();
+
+signals:
 };
 
 // image processors implementations end

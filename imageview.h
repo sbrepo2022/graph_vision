@@ -29,6 +29,13 @@ public:
     void deleteSceneItems();
     void resizeContent();
 
+    int getStartPixelX() { return start_pixel_x; }
+    int getStartPixelY() { return start_pixel_y; }
+    int getPPSX() { return pps_x; }
+    int getPPSY() { return pps_y; }
+    int getStepX() { return step_x; }
+    int getStepY() { return step_y; }
+
 private:
     QGraphicsScene *scene;
     QGraphicsPixmapItem *bg_image;
@@ -43,7 +50,7 @@ private:
     int scale_factor;
     int start_pixel_x, start_pixel_y;
     int pps_x, pps_y;
-    int step_x, step_y;
+    double step_x, step_y;
     bool show_processed_image_state;
     ImageViewCursorMode cursor_mode;
 

@@ -41,7 +41,7 @@
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_9">
         <item>
-         <widget class="QSplitter" name="splitter">
+         <widget class="QSplitter" name="splitterImageProcess">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -51,7 +51,7 @@
           <widget class="QScrollArea" name="scrollFiltersArea">
            <property name="minimumSize">
             <size>
-             <width>290</width>
+             <width>340</width>
              <height>0</height>
             </size>
            </property>
@@ -66,8 +66,8 @@
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>288</width>
-              <height>458</height>
+              <width>338</width>
+              <height>438</height>
              </rect>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -174,8 +174,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>445</width>
-               <height>458</height>
+               <width>419</width>
+               <height>438</height>
               </rect>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -273,7 +273,7 @@
                     <number>1000000000</number>
                    </property>
                    <property name="value">
-                    <number>50</number>
+                    <number>1</number>
                    </property>
                   </widget>
                  </item>
@@ -336,7 +336,7 @@
                     <number>1000000000</number>
                    </property>
                    <property name="value">
-                    <number>50</number>
+                    <number>1</number>
                    </property>
                   </widget>
                  </item>
@@ -368,116 +368,174 @@
        <property name="title">
         <string>Graph</string>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_6">
+       <layout class="QVBoxLayout" name="verticalLayout_11">
         <item>
-         <widget class="QSplitter" name="splitterGraph">
+         <widget class="QSplitter" name="splitterGraphProcess">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
           <property name="handleWidth">
            <number>8</number>
           </property>
-          <widget class="QChartView" name="graphicsViewGraph">
+          <widget class="QScrollArea" name="scrollArea">
            <property name="minimumSize">
             <size>
-             <width>0</width>
-             <height>0</height>
-            </size>
-           </property>
-          </widget>
-          <widget class="QScrollArea" name="scrollGraphSettings">
-           <property name="minimumSize">
-            <size>
-             <width>290</width>
+             <width>340</width>
              <height>0</height>
             </size>
            </property>
            <property name="widgetResizable">
             <bool>true</bool>
            </property>
-           <widget class="QWidget" name="scrollGraphWidgetContents">
+           <widget class="QWidget" name="scrollAreaWidgetContents">
             <property name="geometry">
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>428</width>
-              <height>263</height>
+              <width>338</width>
+              <height>283</height>
              </rect>
             </property>
-            <layout class="QVBoxLayout" name="verticalLayout_5">
+            <layout class="QVBoxLayout" name="verticalLayout_6">
              <item>
-              <widget class="QGroupBox" name="groupGraphElements">
+              <widget class="QGroupBox" name="groupGraphProcess">
                <property name="title">
-                <string>Show elements</string>
+                <string>Process queue</string>
                </property>
-               <layout class="QVBoxLayout" name="verticalLayout_7">
-                <item>
-                 <widget class="QCheckBox" name="checkPoints">
-                  <property name="text">
-                   <string>Points</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QCheckBox" name="checkCurve">
-                  <property name="text">
-                   <string>Curve</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QCheckBox" name="checkBackground">
-                  <property name="text">
-                   <string>Background</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QCheckBox" name="checkGrid">
-                  <property name="text">
-                   <string>Grid</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QCheckBox" name="checkCoord">
-                  <property name="text">
-                   <string>Coordinates</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
+               <layout class="QVBoxLayout" name="verticalLayout_12"/>
               </widget>
              </item>
              <item>
-              <spacer name="verticalSpacer_2">
+              <spacer name="verticalSpacer_4">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
                  <width>20</width>
-                 <height>0</height>
+                 <height>186</height>
                 </size>
                </property>
               </spacer>
              </item>
             </layout>
+           </widget>
+          </widget>
+          <widget class="QSplitter" name="splitterGraph">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="handleWidth">
+            <number>8</number>
+           </property>
+           <widget class="QChartView" name="graphicsViewGraph">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="dragMode">
+             <enum>QGraphicsView::NoDrag</enum>
+            </property>
+            <property name="resizeAnchor">
+             <enum>QGraphicsView::NoAnchor</enum>
+            </property>
+           </widget>
+           <widget class="QScrollArea" name="scrollGraphSettings">
+            <property name="minimumSize">
+             <size>
+              <width>290</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="widgetResizable">
+             <bool>true</bool>
+            </property>
+            <widget class="QWidget" name="scrollGraphWidgetContents">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>298</width>
+               <height>283</height>
+              </rect>
+             </property>
+             <layout class="QVBoxLayout" name="verticalLayout_5">
+              <item>
+               <widget class="QGroupBox" name="groupGraphElements">
+                <property name="title">
+                 <string>Show elements</string>
+                </property>
+                <layout class="QVBoxLayout" name="verticalLayout_7">
+                 <item>
+                  <widget class="QCheckBox" name="checkPoints">
+                   <property name="text">
+                    <string>Points</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="checkCurve">
+                   <property name="text">
+                    <string>Curve</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="checkBackground">
+                   <property name="text">
+                    <string>Background</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="checkGrid">
+                   <property name="text">
+                    <string>Grid</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="checkCoord">
+                   <property name="text">
+                    <string>Coordinates</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <spacer name="verticalSpacer_2">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>0</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
            </widget>
           </widget>
          </widget>

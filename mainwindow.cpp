@@ -21,10 +21,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->actionCursor->setChecked(true);
     ui->toolBar->addActions(graph_cursor_action_group->actions());
 
+    // initialize chart view
+    ui->graphicsViewGraph->setRubberBand(QChartView::RectangleRubberBand);
+
     // connect signal-slots
     QObject::connect(ui->actionOpen, SIGNAL(triggered()), this, SLOT(onOpenFile()));
     QObject::connect(ui->actionExport, SIGNAL(triggered()), this, SLOT(onExport()));
     QObject::connect(ui->actionRunPreprocess, SIGNAL(triggered()), this, SLOT(onProcessImage()));
+    QObject::connect(ui->actionRunGraph, SIGNAL(triggered()), this, SLOT(onProcessGraph()));
+    QObject::connect(ui->actionRun, SIGNAL(triggered()), this, SLOT(onProcessAll()));
 
     QObject::connect(ui->actionCursor, SIGNAL(triggered()), this, SLOT(arrowCursorMode()));
     QObject::connect(ui->actionAddPoint, SIGNAL(triggered()), this, SLOT(addPointCursorMode()));
@@ -34,6 +39,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     QObject::connect(ui->checkYAxis, SIGNAL(stateChanged(int)), ui->graphicsViewImage, SLOT(yAxisVisible(int)));
     QObject::connect(ui->checkImagePoints, SIGNAL(stateChanged(int)), ui->graphicsViewImage, SLOT(imagePointsVisible(int)));
     QObject::connect(ui->checkProcessedImage, SIGNAL(stateChanged(int)), ui->graphicsViewImage, SLOT(showProcessedImage(int)));
+
     QObject::connect(ui->spinPPSX, SIGNAL(valueChanged(int)), ui->graphicsViewImage, SLOT(setPPSX(int)));
     QObject::connect(ui->spinPPSY, SIGNAL(valueChanged(int)), ui->graphicsViewImage, SLOT(setPPSY(int)));
     QObject::connect(ui->doubleSpinStepX, SIGNAL(valueChanged(double)), ui->graphicsViewImage, SLOT(setStepX(double)));
@@ -42,7 +48,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     // init image processor
     image_processor = new ImageProcessor(ui->groupImageProcess);
     image_processor->addMiddleware(new GaussianBlur());
-    image_processor->addMiddleware(new CannyFilter());
+    image_processor->addMiddleware(new ColorGradientField());
+    image_processor->addMiddleware(new SegmentationField());
+    image_processor->addMiddleware(new ThinningFilter());
 
     image_processor->moveToThread(&process_image_thread);
     connect(image_processor, &ImageProcessor::resultReady, this, &MainWindow::onProcessImageEnd);
@@ -54,14 +62,32 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     initPreprocessorsMenu();
     initPresetsMenu();
+
+    // init graph processor
+    QList<VectorTransforms*> vector_trans_filters = {new VectorNoiseClearing(), new VectorMerge(), new VectorNoiseClearing()};
+
+    graph_processor = new GraphProcessor(ui->groupGraphProcess);
+    graph_processor->setMiddleware(new LinearVectorization(), vector_trans_filters);
+
+    graph_processor->moveToThread(&process_graph_thread);
+    connect(graph_processor, &GraphProcessor::resultReady, this, &MainWindow::onProcessGraphEnd);
+    connect(this, &MainWindow::startProcessGraph, graph_processor, &GraphProcessor::processGraph);
+    connect(graph_processor, &GraphProcessor::startCalculating, this, &MainWindow::onStartProgressDialog);
+    connect(graph_processor, &GraphProcessor::currentFilter, this, &MainWindow::onProcessProgressDialog);
+    connect(graph_processor, &GraphProcessor::finishCalculating, this, &MainWindow::onFinishProgressDialog);
+    process_graph_thread.start();
 }
 
 MainWindow::~MainWindow() {
     process_image_thread.quit();
     process_image_thread.wait();
 
+    process_graph_thread.quit();
+    process_graph_thread.wait();
+
     delete ui;
     delete image_processor;
+    delete graph_processor;
 }
 
 void MainWindow::initUi() {
@@ -69,6 +95,10 @@ void MainWindow::initUi() {
     ui->splitterImage->setStretchFactor(1, 0);
     ui->splitterGraph->setStretchFactor(0, 1);
     ui->splitterGraph->setStretchFactor(1, 0);
+    ui->splitterImageProcess->setStretchFactor(0, 0);
+    ui->splitterImageProcess->setStretchFactor(1, 1);
+    ui->splitterGraphProcess->setStretchFactor(0, 0);
+    ui->splitterGraphProcess->setStretchFactor(1, 1);
     ui->splitterMain->setSizes(QList<int>({INT_MAX, INT_MAX}));
 }
 
@@ -96,6 +126,18 @@ void MainWindow::initPreprocessorsMenu() {
         image_processor->addMiddleware(new ColorGradientField());
     });
     ui->menuAddFilter->addAction(color_gradient_filter);
+
+    QAction *segmentation_filter = new QAction("Segmentation filter");
+    connect(segmentation_filter, &QAction::triggered, this, [=]() {
+        image_processor->addMiddleware(new SegmentationField());
+    });
+    ui->menuAddFilter->addAction(segmentation_filter);
+
+    QAction *thinning_filter = new QAction("Thinning filter");
+    connect(thinning_filter, &QAction::triggered, this, [=]() {
+        image_processor->addMiddleware(new ThinningFilter());
+    });
+    ui->menuAddFilter->addAction(thinning_filter);
 }
 
 void MainWindow::initPresetsMenu() {
@@ -114,6 +156,16 @@ void MainWindow::initPresetsMenu() {
         image_processor->addMiddleware(new ColorGradientField());
     });
     ui->menuPresets->addAction(gradient_analisys);
+
+    QAction *graphic_analisys = new QAction("Graphic analysis");
+    connect(graphic_analisys, &QAction::triggered, this, [=]() {
+        image_processor->clear();
+        image_processor->addMiddleware(new GaussianBlur());
+        image_processor->addMiddleware(new ColorGradientField());
+        image_processor->addMiddleware(new SegmentationField());
+        image_processor->addMiddleware(new ThinningFilter());
+    });
+    ui->menuPresets->addAction(graphic_analisys);
 }
 
 // slots
@@ -154,6 +206,72 @@ void MainWindow::onProcessImageEnd(const QImage &result) {
     processed_image = result;
     ui->graphicsViewImage->setProcessedImage(QPixmap::fromImage(processed_image));
     ui->checkProcessedImage->setDisabled(false);
+    emit endProcessImage();
+}
+
+void MainWindow::onProcessGraphEnd(VectorizationProduct result) {
+    int start_x = ui->graphicsViewImage->getStartPixelX(), start_y = processed_image.height() - ui->graphicsViewImage->getStartPixelY();
+    int pps_x = ui->graphicsViewImage->getPPSX(), pps_y = ui->graphicsViewImage->getPPSY();
+    double step_x = ui->graphicsViewImage->getStepX(), step_y = ui->graphicsViewImage->getStepY();
+
+    double g_start_x = (double)(0 - start_x) * (step_x / pps_x), g_start_y = (double)(0 - start_y) * (step_y / pps_y);
+    double g_end_x = (double)(processed_image.width() - start_x) * (step_x / pps_x), g_end_y = (double)(processed_image.height() - start_y) * (step_y / pps_y);
+
+    QChart *chart = new QChart();
+
+    QValueAxis *axisX = new QValueAxis();
+    axisX->setTitleText("x");
+    axisX->setLabelFormat("%g");
+    axisX->setTickInterval(100.0);
+    axisX->setTickAnchor(0.0);
+    axisX->setTickType(QValueAxis::TicksDynamic);
+    axisX->setRange(g_start_x, g_end_x);
+
+    QValueAxis *axisY = new QValueAxis();
+    axisY->setTitleText("y");
+    axisY->setLabelFormat("%g");
+    axisY->setTickInterval(100.0);
+    axisY->setTickAnchor(0.0);
+    axisY->setTickType(QValueAxis::TicksDynamic);
+    axisY->setRange(g_start_y, g_end_y);
+
+    chart->addAxis(axisX, Qt::AlignBottom);
+    chart->addAxis(axisY, Qt::AlignLeft);
+
+    for (auto it = result.begin(); it != result.end(); it++) {
+        QLineSeries *series = new QLineSeries();
+        for (auto it_2 = it->begin(); it_2 != it->end(); it_2++) {
+            QPointF point = *it_2;
+            point.setY(processed_image.height() - point.y());
+            point.setX( (double)(point.x() - start_x) * (step_x / pps_x) );
+            point.setY( (double)(point.y() - start_y) * (step_y / pps_y) );
+            *series << point;
+        }
+        chart->addSeries(series);
+        series->attachAxis(axisX);
+        series->attachAxis(axisY);
+    }
+
+    this->ui->graphicsViewGraph->setChart(chart);
+    emit endProcessGraph();
+}
+
+void MainWindow::onProcessGraph() {
+    if (! processed_image.isNull()) {
+        emit startProcessGraph(processed_image);
+    }
+}
+
+void MainWindow::onProcessAll() {
+    connect(this, SIGNAL(endProcessImage()), this, SLOT(onProcessGraph()));
+    connect(this, SIGNAL(endProcessGraph()), this, SLOT(onProcessAllEnd()));
+
+    onProcessImage();
+}
+
+void MainWindow::onProcessAllEnd() {
+    disconnect(this, SIGNAL(endProcessImage()), this, SLOT(onProcessGraph()));
+    disconnect(this, SIGNAL(endProcessGraph()), this, SLOT(onProcessAllEnd()));
 }
 
 void MainWindow::onStartProgressDialog(int count, QString name) {

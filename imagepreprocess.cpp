@@ -33,74 +33,10 @@ void ImagePreprocess::generateWidget(const QList<QMap<QString, QVariant>> &widge
     tools_layout->addWidget(delete_button);
     connect(delete_button, &QAbstractButton::clicked, this, &ImagePreprocess::deletePreprocess);
 
-
-    for (int i = 0; i < widget_properties.size(); i++) {
-        QMap<QString, QVariant> prop_elem = widget_properties[i];
-        QVariant prop_val = this->property(prop_elem["name"].toString().toStdString().c_str());
-        QWidget *field = nullptr;
-
-        // adding property components
-        if (strcmp(prop_val.typeName(), "bool") == 0) {
-            QCheckBox *check = new QCheckBox(interface_widget);
-            check->setChecked(prop_val.toBool());
-            connect(check, &QCheckBox::stateChanged, this, [=](bool val) {
-                this->setProperty(prop_elem["name"].toString().toStdString().c_str(), val);
-            });
-            field = check;
-        }
-        else if (strcmp(prop_val.typeName(), "int") == 0) {
-            QSpinBox *spin = new QSpinBox(interface_widget);
-            if (prop_elem.find("min") != prop_elem.end())
-                spin->setMinimum(prop_elem["min"].toInt());
-            if (prop_elem.find("max") != prop_elem.end())
-                spin->setMaximum(prop_elem["max"].toInt());
-            spin->setValue(prop_val.toInt());
-            connect(spin, &QSpinBox::valueChanged, this, [=](int val) {
-                this->setProperty(prop_elem["name"].toString().toStdString().c_str(), val);
-            });
-            field = spin;
-        }
-        else if (strcmp(prop_val.typeName(), "double") == 0) {
-            QDoubleSpinBox *spin = new QDoubleSpinBox(interface_widget);
-            if (prop_elem.find("min") != prop_elem.end())
-                spin->setMinimum(prop_elem["min"].toDouble());
-            if (prop_elem.find("max") != prop_elem.end())
-                spin->setMaximum(prop_elem["max"].toDouble());
-            spin->setValue(prop_val.toDouble());
-            connect(spin, &QDoubleSpinBox::valueChanged, this, [=](double val) {
-                this->setProperty(prop_elem["name"].toString().toStdString().c_str(), val);
-            });
-            field = spin;
-        }
-        else if (strcmp(prop_val.typeName(), "QString") == 0) {
-            if (prop_elem.find("field_type") != prop_elem.end()) {
-                if (prop_elem["field_type"].toString() == "list") {
-                    QComboBox *combo = new QComboBox(interface_widget);
-                    if (prop_elem.find("variants") != prop_elem.end()) {
-                        combo->addItems(prop_elem["variants"].toStringList());
-                    }
-                    connect(combo, &QComboBox::currentTextChanged, this, [=](const QString &val) {
-                        this->setProperty(prop_elem["name"].toString().toStdString().c_str(), val);
-                    });
-                    field = combo;
-                }
-                else {
-                    QLineEdit *line = new QLineEdit(interface_widget);
-                    connect(line, &QLineEdit::textChanged, this, [=](const QString &val) {
-                        this->setProperty(prop_elem["name"].toString().toStdString().c_str(), val);
-                    });
-                }
-            }
-        }
-        else {
-            field = new QLabel("incorrect property type", interface_widget);
-        }
-
-        layout->addRow(new QLabel(prop_elem["name"].toString().toStdString().c_str()), field);
-    }
+    FormGenerator::generateWidget(interface_widget, layout, widget_properties);
 }
 
-ImagePreprocess::ImagePreprocess(QObject *parent) : QObject(parent), interface_widget(nullptr), use(true) {}
+ImagePreprocess::ImagePreprocess(QObject *parent) : FormGenerator(parent), interface_widget(nullptr), use(true) {}
 
 ImagePreprocess::~ImagePreprocess() {
     if (interface_widget != nullptr)
@@ -484,6 +420,8 @@ CannyFilter::~CannyFilter() {}
 
 // ColorGradientField
 ColorGradientField::ColorGradientField(QObject *parent) : ImagePreprocess(parent) {
+    m_grayscale = true;
+
     group_name = "Color gradient filter";
     generateWidget(QList<QMap<QString, QVariant>>(
     {
@@ -491,6 +429,9 @@ ColorGradientField::ColorGradientField(QObject *parent) : ImagePreprocess(parent
             std::pair<QString, QVariant>("name", "filter"),
             std::pair<QString, QVariant>("field_type", "list"),
             std::pair<QString, QVariant>("variants", QStringList({"prewitt_3", "prewitt_5", "prewitt_7", "sobel", "tpo_5", "tpo_7"}))
+        },
+        {
+            std::pair<QString, QVariant>("name", "grayscale")
         }
     }));
 }
@@ -666,15 +607,21 @@ QImage ColorGradientField::processImage(const QImage &image) {
     for (int j = 0; j < image.height(); j++) {
         for (int i = 0; i < image.width(); i++) {
             cur_len = gf_1[j][i].len();
-            if (cur_len < (max_len - min_len) * 0.5) {
-                cur_min = min_len;
-                cur_max = (max_len - min_len) * 0.5;
-                result.setPixelColor(i, j, QColor( 0, (cur_len - cur_min) * 255 / (cur_max - cur_min), 255 + (cur_len - cur_min) * -255 / (cur_max - cur_min) ));
+            if (! m_grayscale) {
+                if (cur_len < (max_len - min_len) * 0.5) {
+                    cur_min = min_len;
+                    cur_max = (max_len - min_len) * 0.5;
+                    result.setPixelColor(i, j, QColor( 0, (cur_len - cur_min) * 255 / (cur_max - cur_min), 255 + (cur_len - cur_min) * -255 / (cur_max - cur_min) ));
+                }
+                else {
+                    cur_min = (max_len - min_len) * 0.5;
+                    cur_max = max_len;
+                    result.setPixelColor(i, j, QColor( (cur_len - cur_min) * 255 / (cur_max - cur_min), 255 + (cur_len - cur_min) * -255 / (cur_max - cur_min), 0 ));
+                }
             }
             else {
-                cur_min = (max_len - min_len) * 0.5;
-                cur_max = max_len;
-                result.setPixelColor(i, j, QColor( (cur_len - cur_min) * 255 / (cur_max - cur_min), 255 + (cur_len - cur_min) * -255 / (cur_max - cur_min), 0 ));
+                int val = (cur_len - min_len) * 255 / (max_len - min_len);
+                result.setPixelColor(i, j, QColor(val, val, val));
             }
         }
     }
@@ -693,6 +640,341 @@ QImage ColorGradientField::processImage(const QImage &image) {
 }
 
 ColorGradientField::~ColorGradientField() {}
+
+
+
+// SegmentationField
+SegmentationField::SegmentationField(QObject *parent) : ImagePreprocess(parent) {
+    m_threshold_low = 40;
+    m_classification = true;
+    m_autoclassification = true;
+    m_classification_threshold = 100;
+
+    group_name = "Sementation filter";
+    generateWidget(QList<QMap<QString, QVariant>>(
+    {
+        {
+            std::pair<QString, QVariant>("name", "threshold_low"),
+            std::pair<QString, QVariant>("min", 0),
+            std::pair<QString, QVariant>("max", 255)
+        },
+        {
+            std::pair<QString, QVariant>("name", "classification")
+        },
+        {
+            std::pair<QString, QVariant>("name", "classification_threshold"),
+            std::pair<QString, QVariant>("min", 0),
+            std::pair<QString, QVariant>("max", 10000 * 10000)
+        },
+        {
+            std::pair<QString, QVariant>("name", "autoclassification")
+        }
+    }));
+}
+
+QImage SegmentationField::processImage(const QImage &image) {
+    QImage result(image);
+
+    for (int j = 0; j < image.height(); j++) {
+        for (int i = 0; i < image.width(); i++) {
+            int color_val = result.pixelColor(i, j).value();
+            result.setPixelColor(i, j, QColor(color_val));
+            if (result.pixelColor(i, j).value() < m_threshold_low) {
+                result.setPixelColor(i, j, QColor(0, 0, 0));
+            }
+        }
+    }
+
+    int cur_area = 1;
+    int **areas_field;
+    areas_field = new int*[image.height()];
+    for (int i = 0; i < image.height(); i++) {
+        areas_field[i] = new int[image.width()];
+        for (int j = 0; j < image.width(); j++) {
+            areas_field[i][j] = -1;
+        }
+    }
+
+    auto fillArea {
+        [&](int i, int j, int cur_area) {
+            QStack<QPoint> stack;
+            stack.push(QPoint(i, j));
+            while (! stack.isEmpty()) {
+                QPoint cur_p = stack.pop();
+                areas_field[cur_p.y()][cur_p.x()] = cur_area;
+                if (cur_p.x() + 1 < image.width() && result.pixelColor(cur_p.x() + 1, cur_p.y()).value() >= result.pixelColor(cur_p.x(), cur_p.y()).value() && areas_field[cur_p.y()][cur_p.x() + 1] == -1) {
+                    QPoint new_p(cur_p.x() + 1, cur_p.y());
+                    areas_field[new_p.y()][new_p.x()] = 0;
+                    stack.push(new_p);
+                }
+                if (cur_p.x() - 1 >= 0 && result.pixelColor(cur_p.x() - 1, cur_p.y()).value() >= result.pixelColor(cur_p.x(), cur_p.y()).value() && areas_field[cur_p.y()][cur_p.x() - 1] == -1) {
+                    QPoint new_p(cur_p.x() - 1, cur_p.y());
+                    areas_field[new_p.y()][new_p.x()] = 0;
+                    stack.push(new_p);
+                }
+                if (cur_p.y() + 1 < image.height() && result.pixelColor(cur_p.x(), cur_p.y() + 1).value() >= result.pixelColor(cur_p.x(), cur_p.y()).value() && areas_field[cur_p.y() + 1][cur_p.x()] == -1) {
+                    QPoint new_p(cur_p.x(), cur_p.y() + 1);
+                    areas_field[new_p.y()][new_p.x()] = 0;
+                    stack.push(new_p);
+                }
+                if (cur_p.y() - 1 >= 0 && result.pixelColor(cur_p.x(), cur_p.y() - 1).value() >= result.pixelColor(cur_p.x(), cur_p.y()).value() && areas_field[cur_p.y() - 1][cur_p.x()] == -1) {
+                    QPoint new_p(cur_p.x(), cur_p.y() - 1);
+                    areas_field[new_p.y()][new_p.x()] = 0;
+                    stack.push(new_p);
+                }
+            }
+        }
+    };
+
+    // fill areas minimums
+    for (int j = 0; j < image.height(); j++) {
+        for (int i = 0; i < image.width(); i++) {
+            if (result.pixelColor(i, j).value() == 0 && areas_field[j][i] == -1) {
+                fillArea(i, j, cur_area);
+                cur_area++;
+            }
+        }
+    }
+
+    // divide for big and small groups
+    if (m_classification) {
+        QMap<int, int> areas_squares;
+        for (int j = 0; j < image.height(); j++) {
+            for (int i = 0; i < image.width(); i++) {
+                if (areas_field[j][i] > 0) {
+                    if (areas_squares.contains(areas_field[j][i])) areas_squares[areas_field[j][i]]++;
+                    else areas_squares.insert(areas_field[j][i], 1);
+                }
+            }
+        }
+
+        int classification_threshold =  (double)(image.width() * image.height()) / areas_squares.count();
+
+        for (int j = 0; j < image.height(); j++) {
+            for (int i = 0; i < image.width(); i++) {
+                if (areas_field[j][i] > 0) {
+                    if (areas_squares[areas_field[j][i]] < (m_autoclassification ? classification_threshold : m_classification_threshold)) areas_field[j][i] = 2;
+                    else areas_field[j][i] = 1;
+                }
+            }
+        }
+    }
+
+    // delete holes
+    for (int j = 0; j < image.height(); j++) {
+        for (int i = 0; i < image.width(); i++) {
+            if (areas_field[j][i] <= 0) {
+                QPoint p1(i, j), p2(i, j);
+                bool fix_l = false, fix_r = false, fix_t = false, fix_b = false;
+                QMap<int, int> near_areas;
+                while (! fix_l || ! fix_r || ! fix_t || ! fix_b) {
+                    if (p2.x() + 1 < image.width() && ! fix_r) {
+                        p2.setX(p2.x() + 1);
+                        int count = 0;
+                        for (int y = p1.y(); y <= p2.y(); y++) {
+                            if (areas_field[y][p2.x()] <= 0)
+                                count++;
+                            else {
+                                if (areas_field[y][p2.x() - 1] <= 0) {
+                                    if (near_areas.contains(areas_field[y][p2.x()])) near_areas[areas_field[y][p2.x()]]++;
+                                    else near_areas.insert(areas_field[y][p2.x()], 1);
+                                }
+                            }
+                        }
+                        if (count == 0) fix_r = true;
+                    }
+                    else fix_r = true;
+
+                    if (p2.y() + 1 < image.height() && ! fix_b) {
+                        p2.setY(p2.y() + 1);
+                        int count = 0;
+                        for (int x = p1.x(); x <= p2.x(); x++) {
+                            if (areas_field[p2.y()][x] <= 0)
+                                count++;
+                            else {
+                                if (areas_field[p2.y() - 1][x] <= 0) {
+                                    if (near_areas.contains(areas_field[p2.y()][x])) near_areas[areas_field[p2.y()][x]]++;
+                                    else near_areas.insert(areas_field[p2.y()][x], 1);
+                                }
+                            }
+                        }
+                        if (count == 0) fix_b = true;
+                    }
+                    else fix_b = true;
+
+                    if (p1.x() - 1 >= 0 && ! fix_l) {
+                        p1.setX(p1.x() - 1);
+                        int count = 0;
+                        for (int y = p1.y(); y <= p2.y(); y++) {
+                            if (areas_field[y][p1.x()] <= 0)
+                                count++;
+                            else {
+                                if (areas_field[y][p1.x() + 1] <= 0) {
+                                    if (near_areas.contains(areas_field[y][p1.x()])) near_areas[areas_field[y][p1.x()]]++;
+                                    else near_areas.insert(areas_field[y][p1.x()], 1);
+                                }
+                            }
+                        }
+                        if (count == 0) fix_l = true;
+                    }
+                    else fix_l = true;
+
+                    if (p1.y() - 1 >= 0 && ! fix_t) {
+                        p1.setY(p1.y() - 1);
+                        int count = 0;
+                        for (int x = p1.x(); x <= p2.x(); x++) {
+                            if (areas_field[p1.y()][x] <= 0)
+                                count++;
+                            else {
+                                if (areas_field[p1.y() + 1][x] <= 0) {
+                                    if (near_areas.contains(areas_field[p1.y()][x])) near_areas[areas_field[p1.y()][x]]++;
+                                    else near_areas.insert(areas_field[p1.y()][x], 1);
+                                }
+                            }
+                        }
+                        if (count == 0) fix_t = true;
+                    }
+                    else fix_t = true;
+
+                }
+
+                int max_area = -1;
+                int max_area_val = -1;
+                for (auto it = near_areas.begin(); it != near_areas.end(); it++) {
+                    if (it.value() > max_area_val) {
+                        max_area_val = it.value();
+                        max_area = it.key();
+                    }
+                }
+
+                //qDebug() << p2 - p1;
+
+                for (int x = p1.x(); x <= p2.x(); x++) {
+                    for (int y = p1.y(); y <= p2.y(); y++) {
+                        if (areas_field[y][x] <= 0) areas_field[y][x] = max_area;
+                    }
+                }
+            }
+        }
+    }
+
+    // colorize
+    for (int j = 0; j < image.height(); j++) {
+        for (int i = 0; i < image.width(); i++) {
+            if (areas_field[j][i] > 0) {
+                if (! m_classification) {
+                    QColor area_color = QColor::fromHsvF(1.0 / (double)cur_area * (double)areas_field[j][i], 1.0, 1.0);
+                    result.setPixelColor(i, j, area_color);
+                }
+                else {
+                    if (areas_field[j][i] == 1) {
+                        result.setPixelColor(i, j, QColor(0, 0, 0));
+                    }
+                    else if (areas_field[j][i] == 2) {
+                        result.setPixelColor(i, j, QColor(255, 255, 255));
+                    }
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < image.height(); i++) {
+        delete [] areas_field[i];
+    }
+    delete [] areas_field;
+
+    return result;
+}
+
+SegmentationField::~SegmentationField() {}
+
+
+
+ThinningFilter::ThinningFilter(QObject *parent) : ImagePreprocess(parent) {
+    group_name = "Thinning filter";
+    generateWidget(QList<QMap<QString, QVariant>>());
+}
+
+QImage ThinningFilter::processImage(const QImage &image) {
+    QImage result(image);
+
+    int **res = new int*[image.height()];
+    int **buf = new int*[image.height()];
+    for (int i = 0; i < image.height(); i++) {
+        res[i] = new int[image.width()];
+        buf[i] = new int[image.width()];
+    }
+
+    for (int j = 0; j < image.height(); j++) {
+        for (int i = 0; i < image.width(); i++) {
+            buf[j][i] = image.pixelColor(i, j).value() < 127 ? 0 : 1;
+            if (i == 0 || j == 0 || i == image.width() - 1 || j == image.height() - 1) buf[j][i] = 0;
+        }
+    }
+
+    auto copyBuf {
+        [&]() {
+            for (int j = 0; j < image.height(); j++) {
+                for (int i = 0; i < image.width(); i++) {
+                    res[j][i] = buf[j][i];
+                }
+            }
+        }
+    };
+
+    auto S {
+        [](int x, int y, int **res) {
+            int N[9] = {res[y-1][x], res[y-1][x+1], res[y][x+1], res[y+1][x+1], res[y+1][x], res[y+1][x-1], res[y][x-1], res[y-1][x-1], res[y-1][x]};
+            int count = 0;
+            int last = N[0];
+            for (int i = 1; i < 9; i++) {
+                if (N[i] == 1 && last == 0) count++;
+                last = N[i];
+            }
+            return count;
+        }
+    };
+
+    copyBuf();
+    bool found = true;
+    while (found) {
+        found = false;
+        for (int j = 1; j < image.height() - 1; j++) {
+            for (int i = 1; i < image.width() - 1; i++) {
+                if (res[j][i] == 1) {
+                    if (2 <= res[j-1][i] + res[j-1][i+1] + res[j][i+1] + res[j+1][i+1] + res[j+1][i] + res[j+1][i-1] + res[j][i-1] + res[j-1][i-1]
+                        && res[j-1][i] + res[j-1][i+1] + res[j][i+1] + res[j+1][i+1] + res[j+1][i] + res[j+1][i-1] + res[j][i-1] + res[j-1][i-1] <= 6
+                        && S(i, j, res) == 1
+                        && ((res[j-1][i]*res[j][i+1]*res[j+1][i] == 0 && res[j][i+1]*res[j+1][i]*res[j][i-1] == 0) || (res[j-1][i]*res[j][i+1]*res[j][i-1] == 0 && res[j-1][i]*res[j+1][i]*res[j][i-1] == 0))) {
+                        if (S(i, j, buf) == 1) {
+                            buf[j][i] = 0;
+                            found = true;
+                        }
+                    }
+                }
+            }
+        }
+        copyBuf();
+    }
+
+    for (int j = 0; j < image.height(); j++) {
+        for (int i = 0; i < image.width(); i++) {
+            result.setPixelColor(i, j, QColor(res[j][i] ? 255 : 0, res[j][i] ? 255 : 0, res[j][i] ? 255 : 0));
+        }
+    }
+
+    for (int i = 0; i < image.height(); i++) {
+        delete [] res[i];
+        delete [] buf[i];
+    }
+    delete [] res;
+    delete [] buf;
+
+    return result;
+}
+
+ThinningFilter::~ThinningFilter() {}
+
 
 
 // ImageProcessor

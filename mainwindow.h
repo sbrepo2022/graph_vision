@@ -11,6 +11,7 @@
 #include <QThread>
 
 #include "imagepreprocess.h"
+#include "graphpreprocess.h"
 #include "exportdialog.h"
 
 QT_BEGIN_NAMESPACE
@@ -33,6 +34,7 @@ private:
     Ui::MainWindow *ui;
     QActionGroup *graph_cursor_action_group;
     ImageProcessor *image_processor;
+    GraphProcessor *graph_processor;
 
     QPixmap opened_pixmap;
     QImage processed_image;
@@ -42,12 +44,17 @@ private:
 
     // threads
     QThread process_image_thread;
+    QThread process_graph_thread;
 
 public slots:
     void onOpenFile();
     void onExport();
     void onProcessImage();
     void onProcessImageEnd(const QImage &);
+    void onProcessGraphEnd(VectorizationProduct); // PRINT GRAPH HERE
+    void onProcessGraph();
+    void onProcessAll();
+    void onProcessAllEnd();
 
     // image process
     void onStartProgressDialog(int count, QString name);
@@ -61,5 +68,8 @@ public slots:
 
 signals:
     void startProcessImage(const QImage &);
+    void startProcessGraph(const QImage &);
+    void endProcessImage();
+    void endProcessGraph();
 };
 #endif // MAINWINDOW_H
