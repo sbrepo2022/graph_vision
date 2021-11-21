@@ -21,6 +21,7 @@
 
 #include <QList>
 #include <QLinkedList>
+#include <QStack>
 #include <QMutableListIterator>
 #include <QStringList>
 #include <QMap>
@@ -33,7 +34,29 @@
 
 #include "formgenerator.h"
 
+class GraphPoint {
+private:
+    QPoint m_point;
+    QList<GraphPoint*> next_points;
+
+public:
+    GraphPoint() : m_point(0, 0) {}
+    GraphPoint(const QPoint &point) : m_point(point) {}
+
+    QPoint point() { return m_point; }
+    void setPoint(const QPoint &point) { m_point = point; }
+    void addNext(GraphPoint *next) { next_points.append(next); }
+    QList<GraphPoint*> getNext() { return next_points; }
+
+    ~GraphPoint() {
+        for (GraphPoint* gp : next_points) {
+            delete gp;
+        }
+    }
+};
+
 typedef QLinkedList<QLinkedList<QPoint>> VectorizationProduct;
+typedef QList<GraphPoint*> VectorizationProductGraph;
 
 class GraphPreprocess : public FormGenerator {
     Q_OBJECT;
@@ -173,5 +196,67 @@ signals:
     void currentFilter(int, QString); // number, name
     void finishCalculating();
 };
+
+
+
+
+// Graph vectorization
+
+class VectorizationGraph : public GraphPreprocess {
+    Q_OBJECT;
+
+public:
+    explicit VectorizationGraph(QObject *parent = nullptr) : GraphPreprocess(parent) {};
+
+    virtual VectorizationProductGraph processData(const QImage &image) = 0;
+    virtual ~VectorizationGraph() {};
+};
+
+
+
+class LinearVectorizationGraph : public VectorizationGraph {
+    Q_OBJECT;
+    Q_PROPERTY(int square_size MEMBER m_square_size NOTIFY squareSizeChanged);
+
+private:
+    int m_square_size;
+
+    GraphPoint* vectorizeCurve(const QImage &image, bool **used_field, const QPoint &start);
+
+public:
+    explicit LinearVectorizationGraph(QObject *parent = nullptr);
+
+    virtual VectorizationProductGraph processData(const QImage &image);
+    virtual ~LinearVectorizationGraph();
+
+signals:
+    void squareSizeChanged(int);
+};
+
+// GraphProcessorGraph
+
+class GraphProcessorGraph : public QObject {
+    Q_OBJECT;
+private:
+    QWidget *prop_group_widget;
+    VectorizationGraph *vectorization_filter;
+
+public:
+    explicit GraphProcessorGraph(QWidget *prop_group_widget, QObject *parent = nullptr);
+    ~GraphProcessorGraph();
+
+    void setMiddleware(VectorizationGraph *vectorization_filter);
+
+public slots:
+    void processGraph(const QImage &image);
+
+signals:
+    void resultReady(VectorizationProductGraph);
+    void startCalculating(int, QString); // count of filters
+    void currentFilter(int, QString); // number, name
+    void finishCalculating();
+};
+
+
 
 #endif // GRAPHPREPROCESS_H

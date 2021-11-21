@@ -420,6 +420,7 @@ CannyFilter::~CannyFilter() {}
 
 // ColorGradientField
 ColorGradientField::ColorGradientField(QObject *parent) : ImagePreprocess(parent) {
+    m_max_border = true;
     m_grayscale = true;
 
     group_name = "Color gradient filter";
@@ -429,6 +430,9 @@ ColorGradientField::ColorGradientField(QObject *parent) : ImagePreprocess(parent
             std::pair<QString, QVariant>("name", "filter"),
             std::pair<QString, QVariant>("field_type", "list"),
             std::pair<QString, QVariant>("variants", QStringList({"prewitt_3", "prewitt_5", "prewitt_7", "sobel", "tpo_5", "tpo_7"}))
+        },
+        {
+            std::pair<QString, QVariant>("name", "max_border")
         },
         {
             std::pair<QString, QVariant>("name", "grayscale")
@@ -618,10 +622,16 @@ QImage ColorGradientField::processImage(const QImage &image) {
                     cur_max = max_len;
                     result.setPixelColor(i, j, QColor( (cur_len - cur_min) * 255 / (cur_max - cur_min), 255 + (cur_len - cur_min) * -255 / (cur_max - cur_min), 0 ));
                 }
+                if (m_max_border && (i < matrix_size / 2 + 1 || i >= image.width() - (matrix_size / 2 + 1) || j < matrix_size / 2 + 1 || j >= image.height() - (matrix_size / 2 + 1))) {
+                    result.setPixelColor(i, j, QColor(255, 0, 0));
+                }
             }
             else {
                 int val = (cur_len - min_len) * 255 / (max_len - min_len);
                 result.setPixelColor(i, j, QColor(val, val, val));
+                if (m_max_border && (i < matrix_size / 2 + 1 || i >= image.width() - (matrix_size / 2 + 1) || j < matrix_size / 2 + 1 || j >= image.height() - (matrix_size / 2 + 1))) {
+                    result.setPixelColor(i, j, QColor(255, 255, 255));
+                }
             }
         }
     }

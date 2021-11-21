@@ -137,10 +137,12 @@ signals:
 class ColorGradientField : public ImagePreprocess {
     Q_OBJECT;
     Q_PROPERTY(QString filter MEMBER m_filter NOTIFY filterChanged);
+    Q_PROPERTY(bool max_border MEMBER m_max_border NOTIFY maxBorderChanged);
     Q_PROPERTY(bool grayscale MEMBER m_grayscale NOTIFY grayscaleChanged);
 
 private:
     QString m_filter;
+    bool m_max_border;
     bool m_grayscale;
 
 public:
@@ -151,6 +153,7 @@ public:
 
 signals:
     void filterChanged(QString);
+    void maxBorderChanged(bool);
     void grayscaleChanged(bool);
 };
 

@@ -9,6 +9,7 @@ CONFIG += c++11
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    aboutdialog.cpp \
     algorithms.cpp \
     exportdialog.cpp \
     formgenerator.cpp \
@@ -21,6 +22,7 @@ SOURCES += \
     mainwindow.cpp
 
 HEADERS += \
+    aboutdialog.h \
     algorithms.h \
     exportdialog.h \
     formgenerator.h \
@@ -32,6 +34,7 @@ HEADERS += \
     mainwindow.h
 
 FORMS += \
+    aboutdialog.ui \
     exportdialog.ui \
     mainwindow.ui
 

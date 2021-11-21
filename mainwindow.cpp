@@ -45,6 +45,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     QObject::connect(ui->doubleSpinStepX, SIGNAL(valueChanged(double)), ui->graphicsViewImage, SLOT(setStepX(double)));
     QObject::connect(ui->doubleSpinStepY, SIGNAL(valueChanged(double)), ui->graphicsViewImage, SLOT(setStepY(double)));
 
+    QObject::connect(ui->comboBoxGraphMode, SIGNAL(currentIndexChanged(int)), this, SLOT(graphModeChanged(int)));
+
     // init image processor
     image_processor = new ImageProcessor(ui->groupImageProcess);
     image_processor->addMiddleware(new GaussianBlur());
@@ -75,6 +77,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(graph_processor, &GraphProcessor::startCalculating, this, &MainWindow::onStartProgressDialog);
     connect(graph_processor, &GraphProcessor::currentFilter, this, &MainWindow::onProcessProgressDialog);
     connect(graph_processor, &GraphProcessor::finishCalculating, this, &MainWindow::onFinishProgressDialog);
+
+    // init graph processor graph
+    graph_processor_graph = new GraphProcessorGraph(ui->groupGraphProcessGraph);
+    graph_processor_graph->setMiddleware(new LinearVectorizationGraph());
+
+    graph_processor_graph->moveToThread(&process_graph_thread);
+    connect(graph_processor_graph, &GraphProcessorGraph::resultReady, this, &MainWindow::onProcessGraphEnd2);
+    connect(this, &MainWindow::startProcessGraph2, graph_processor_graph, &GraphProcessorGraph::processGraph);
+    connect(graph_processor_graph, &GraphProcessorGraph::startCalculating, this, &MainWindow::onStartProgressDialog);
+    connect(graph_processor_graph, &GraphProcessorGraph::currentFilter, this, &MainWindow::onProcessProgressDialog);
+    connect(graph_processor_graph, &GraphProcessorGraph::finishCalculating, this, &MainWindow::onFinishProgressDialog);
     process_graph_thread.start();
 }
 
@@ -91,6 +104,7 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::initUi() {
+    ui->groupGraphProcessGraph->setVisible(false);
     ui->splitterImage->setStretchFactor(0, 1);
     ui->splitterImage->setStretchFactor(1, 0);
     ui->splitterGraph->setStretchFactor(0, 1);
@@ -196,6 +210,22 @@ void MainWindow::onExport() {
     export_dialog->exec();
 }
 
+void MainWindow::graphModeChanged(int index) {
+    QObjectList children = ui->widgetGraphModes->children();
+    foreach(QObject *child, children) {
+        QWidget *child_widget = qobject_cast<QWidget*> (child);
+        if (child_widget) {
+            child_widget->setVisible(false);
+        }
+    }
+    if (index == 0) {
+        ui->groupGraphProcess->setVisible(true);
+    }
+    else if (index == 1) {
+        ui->groupGraphProcessGraph->setVisible(true);
+    }
+}
+
 void MainWindow::onProcessImage() {
     if (! opened_pixmap.isNull()) {
         emit startProcessImage(opened_pixmap.toImage());
@@ -256,9 +286,127 @@ void MainWindow::onProcessGraphEnd(VectorizationProduct result) {
     emit endProcessGraph();
 }
 
+void MainWindow::onProcessGraphEnd2(VectorizationProductGraph result) {
+    int start_x = ui->graphicsViewImage->getStartPixelX(), start_y = processed_image.height() - ui->graphicsViewImage->getStartPixelY();
+    int pps_x = ui->graphicsViewImage->getPPSX(), pps_y = ui->graphicsViewImage->getPPSY();
+    double step_x = ui->graphicsViewImage->getStepX(), step_y = ui->graphicsViewImage->getStepY();
+
+    double g_start_x = (double)(0 - start_x) * (step_x / pps_x), g_start_y = (double)(0 - start_y) * (step_y / pps_y);
+    double g_end_x = (double)(processed_image.width() - start_x) * (step_x / pps_x), g_end_y = (double)(processed_image.height() - start_y) * (step_y / pps_y);
+
+    QChart *chart = new QChart();
+
+    QValueAxis *axisX = new QValueAxis();
+    axisX->setTitleText("x");
+    axisX->setLabelFormat("%g");
+    axisX->setTickInterval(100.0);
+    axisX->setTickAnchor(0.0);
+    axisX->setTickType(QValueAxis::TicksDynamic);
+    axisX->setRange(g_start_x, g_end_x);
+
+    QValueAxis *axisY = new QValueAxis();
+    axisY->setTitleText("y");
+    axisY->setLabelFormat("%g");
+    axisY->setTickInterval(100.0);
+    axisY->setTickAnchor(0.0);
+    axisY->setTickType(QValueAxis::TicksDynamic);
+    axisY->setRange(g_start_y, g_end_y);
+
+    chart->addAxis(axisX, Qt::AlignBottom);
+    chart->addAxis(axisY, Qt::AlignLeft);
+
+    auto transformPoint {
+        [&](QPointF point) {
+            point.setY(processed_image.height() - point.y());
+            point.setX( (double)(point.x() - start_x) * (step_x / pps_x) );
+            point.setY( (double)(point.y() - start_y) * (step_y / pps_y) );
+            return point;
+        }
+    };
+
+    // here goes showing graph
+
+    /*for (GraphPoint* p : result) {
+        QStack<GraphPoint*> branches;
+        QLineSeries *series;
+        branches.push(p);
+        while(branches.length() > 0) {
+            series = new QLineSeries();
+            GraphPoint* cur_p = branches.pop();
+            QList<GraphPoint*> next_points = cur_p->getNext();
+            if (next_points.length() == 1) {
+                do {
+                    *series << transformPoint(cur_p->point());
+                    cur_p = next_points[0];
+                } while ((next_points = cur_p->getNext()).length() == 1);
+                chart->addSeries(series);
+                series->attachAxis(axisX);
+                series->attachAxis(axisY);
+            }
+            if (next_points.length() > 1) {
+                for (int i = 0; i < next_points.length(); i++) {
+                    branches.push(next_points[i]);
+                }
+            }
+        }
+    }*/
+    for (GraphPoint* p : result) {
+            QStack<GraphPoint*> branches;
+            QLineSeries *series;
+            branches.push(p);
+            while(branches.length() > 0) {
+                GraphPoint* cur_p = branches.pop();
+                QList<GraphPoint*> next_points = cur_p->getNext();
+                if (next_points.length() > 1) {
+                    for (int i = 0; i < next_points.length(); i++) {
+                        series = new QLineSeries();
+                        *series << transformPoint(cur_p->point());
+                        GraphPoint* cur_p2 = next_points[i];
+                        QList<GraphPoint*> next_points2 = cur_p2->getNext();
+                        while ((next_points2 = cur_p2->getNext()).length() == 1) {
+                            *series << transformPoint(cur_p2->point());
+                            cur_p2 = next_points2[0];
+                        }
+                        *series << transformPoint(cur_p2->point());
+                        if (next_points2.length() > 1)
+                            branches.push(cur_p2);
+                        chart->addSeries(series);
+                        series->attachAxis(axisX);
+                        series->attachAxis(axisY);
+                    }
+                }
+                if (next_points.length() == 1) {
+                    series = new QLineSeries();
+                    do {
+                        *series << transformPoint(cur_p->point());
+                        cur_p = next_points[0];
+                    } while ((next_points = cur_p->getNext()).length() == 1);
+                    *series << transformPoint(cur_p->point());
+                    if (next_points.length() > 1)
+                        branches.push(cur_p);
+                    chart->addSeries(series);
+                    series->attachAxis(axisX);
+                    series->attachAxis(axisY);
+                }
+            }
+        }
+
+    for (GraphPoint* p : result) {
+        delete p;
+    }
+
+    this->ui->graphicsViewGraph->setChart(chart);
+    emit endProcessGraph();
+}
+
 void MainWindow::onProcessGraph() {
     if (! processed_image.isNull()) {
-        emit startProcessGraph(processed_image);
+        if (ui->comboBoxGraphMode->currentIndex() == 0) {
+            emit startProcessGraph(processed_image);
+        }
+        else if (ui->comboBoxGraphMode->currentIndex() == 1) {
+            emit startProcessGraph2(processed_image);
+        }
     }
 }
 

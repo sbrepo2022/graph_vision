@@ -425,3 +425,147 @@ void GraphProcessor::processGraph(const QImage &image) {
     emit finishCalculating();
     emit resultReady(vectorization_result);
 }
+
+
+
+// Graph vectorization
+
+LinearVectorizationGraph::LinearVectorizationGraph(QObject *parent) : VectorizationGraph(parent) {
+    m_square_size = 5;
+
+    group_name = "Graph vectorization";
+    generateWidget(QList<QMap<QString, QVariant>>(
+    {
+        {
+            std::pair<QString, QVariant>("name", "square_size"),
+            std::pair<QString, QVariant>("min", 1),
+            std::pair<QString, QVariant>("max", 255)
+        }
+    }));
+}
+
+GraphPoint* LinearVectorizationGraph::vectorizeCurve(const QImage &image, bool **used_field, const QPoint &start) {
+    int sq_s = m_square_size; // square size
+
+    GraphPoint *result = new GraphPoint(start);
+    GraphPoint *cur_graph = result;
+    GraphPoint *new_graph;
+    QStack<GraphPoint*> branches;
+
+    auto checkBorders {
+        [&](GraphPoint* cur_graph) {
+            QPoint pos = cur_graph->point();
+            QList<QPoint> points;
+            for (int i = -(sq_s / 2); i < sq_s / 2; i++) {
+                points.push_back(QPoint(pos.x() + i, pos.y() - sq_s / 2));
+            }
+            for (int i = -(sq_s / 2); i < sq_s / 2; i++) {
+                points.push_back(QPoint(pos.x() + sq_s / 2, pos.y() + i));
+            }
+            for (int i = sq_s / 2; i > -(sq_s / 2); i--) {
+                points.push_back(QPoint(pos.x() + i, pos.y() + sq_s / 2));
+            }
+            for (int i = sq_s / 2; i >= -(sq_s / 2); i--) {
+                points.push_back(QPoint(pos.x() - sq_s / 2, pos.y() + i));
+            }
+
+            bool first = ! used_field[points[0].y()][points[0].x()] && image.pixelColor(points[0].x(), points[0].y()).value() > 0;
+            bool cur = first;
+            for (int i = 1; i < points.length(); i++) {
+                bool next = ! used_field[points[i].y()][points[i].x()] && image.pixelColor(points[i].x(), points[i].y()).value() > 0;
+                if (!cur && next) {
+                    new_graph = new GraphPoint(points[i]);
+                    cur_graph->addNext(new_graph);
+                    branches.push(new_graph);
+                }
+                cur = next;
+            }
+        }
+    };
+
+    auto useSquare {
+        [&](const QPoint &pos) {
+            for (int i = -(sq_s / 2); i <= sq_s / 2; i++) {
+                for (int j = -(sq_s / 2); j <= sq_s / 2; j++) {
+                    used_field[pos.y() + j][pos.x() + i] = true;
+                }
+            }
+        }
+    };
+
+    branches.push(cur_graph);
+    while (branches.length() > 0) {
+        cur_graph = branches.pop();
+        if (cur_graph->point().x() > sq_s/2 && cur_graph->point().y() > sq_s/2 && cur_graph->point().x() < image.width() - sq_s/2 && cur_graph->point().y() < image.height() - sq_s/2 ) {
+            checkBorders(cur_graph);
+            useSquare(cur_graph->point());
+        }
+    }
+
+    return result;
+}
+
+VectorizationProductGraph LinearVectorizationGraph::processData(const QImage &image) {
+    bool **used_field = new bool*[image.height()];
+    for (int i = 0; i < image.height(); i++) {
+        used_field[i] = new bool[image.width()];
+        for (int j = 0; j < image.width(); j++) {
+            used_field[i][j] = false;
+        }
+    }
+
+    VectorizationProductGraph vp;
+
+    for (int y = 0; y < image.height(); y++) {
+        for (int x = 0; x < image.width(); x++) {
+            if (! used_field[y][x]) {
+                if (image.pixelColor(x, y).value() > 0) {
+                    vp.append(this->vectorizeCurve(image, used_field, QPoint(x, y)));
+                }
+            }
+            used_field[y][x] = true;
+        }
+    }
+
+    for (int i = 0; i < image.height(); i++) {
+        delete [] used_field[i];
+    }
+    delete [] used_field;
+
+    return vp;
+}
+
+LinearVectorizationGraph::~LinearVectorizationGraph() {}
+
+// GraphProcessor
+
+GraphProcessorGraph::GraphProcessorGraph(QWidget *prop_group_widget, QObject *parent) : QObject(parent) {
+    this->prop_group_widget = prop_group_widget;
+}
+
+GraphProcessorGraph::~GraphProcessorGraph() {
+    if (vectorization_filter != nullptr) {
+        delete vectorization_filter;
+    }
+}
+
+void GraphProcessorGraph::setMiddleware(VectorizationGraph *vectorization_filter) {
+    this->vectorization_filter = vectorization_filter;
+    if (vectorization_filter->getWidget() != nullptr) {
+        prop_group_widget->layout()->addWidget(vectorization_filter->getWidget());
+    }
+}
+
+void GraphProcessorGraph::processGraph(const QImage &image) {
+    emit startCalculating(1, "Processing graph...");
+    VectorizationProductGraph vectorization_result;
+
+
+    int f_ind = 0;
+    emit currentFilter(f_ind, vectorization_filter->getGroupName());
+    f_ind++;
+    vectorization_result = vectorization_filter->processData(image);
+
+    emit finishCalculating();
+    emit resultReady(vectorization_result);
+}

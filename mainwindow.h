@@ -35,6 +35,7 @@ private:
     QActionGroup *graph_cursor_action_group;
     ImageProcessor *image_processor;
     GraphProcessor *graph_processor;
+    GraphProcessorGraph *graph_processor_graph;
 
     QPixmap opened_pixmap;
     QImage processed_image;
@@ -49,9 +50,11 @@ private:
 public slots:
     void onOpenFile();
     void onExport();
+    void graphModeChanged(int);
     void onProcessImage();
     void onProcessImageEnd(const QImage &);
     void onProcessGraphEnd(VectorizationProduct); // PRINT GRAPH HERE
+    void onProcessGraphEnd2(VectorizationProductGraph); // PRINT GRAPH HERE
     void onProcessGraph();
     void onProcessAll();
     void onProcessAllEnd();
@@ -69,6 +72,7 @@ public slots:
 signals:
     void startProcessImage(const QImage &);
     void startProcessGraph(const QImage &);
+    void startProcessGraph2(const QImage &);
     void endProcessImage();
     void endProcessGraph();
 };
